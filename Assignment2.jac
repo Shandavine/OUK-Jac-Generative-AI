@@ -1,64 +1,37 @@
-
-
-with entry {
-    spawn file_agent;
-    do file_agent.read_code("uploads/sample.php");
+node file {
+    has path: str;
+    has content: str;
 }
 
-# Agent to read file
-behavior file_agent {
-    can read_code(path) {
-        log("📂 Reading file: " + path);
-        file_text = read(path);
-        if not file_text {
-            log("⚠️ Error: Could not read file at " + path);
-            return;
-        }
-        spawn parser_agent with file_text;
-    }
+node doc {
+    has title: str;
+    has body: str;
+    has lang: str;
 }
 
-# Agent to parse functions from file
-behavior parser_agent {
-    has file_text;
+edge for_file {}
 
-    can parse_code() {
-        log("🧩 Parsing PHP code...");
-        lines = split_lines(file_text);
-        functions = [];
-
-        foreach line in lines {
-            if contains(line, "function") {
-                log("✅ Function found: " + line);
-                append(functions, line);
-            }
-        }
-
-        if len(functions) > 0 {
-            spawn doc_agent with functions;
-        } else {
-            log("⚠️ No functions found in the file.");
-        }
-    }
-
-    on spawn {
-        do parse_code();
+node file {
+    can extract {
+        std.out("extract ability invoked for: " + here.path);
     }
 }
 
-# Agent to generate documentation
-behavior doc_agent {
-    has functions;
+walker docger {
+    has files_seen: int = 0;
 
-    can generate_docs() {
-        log("📝 Generating documentation...");
-        foreach func in functions {
-            log("📖 Documented function: " + func);
-        }
-        log("✅ Documentation generation complete!");
+    root {
+        std.out("docger walker starting");
+        take -->;
     }
 
-    on spawn {
-        do generate_docs();
+    file {
+        std.out("docger visiting: " + here.path);
+        files_seen = files_seen + 1;
+        here.extract();
+    }
+
+    end {
+        std.out("docger finished. files_seen: " + files_seen);
     }
 }
